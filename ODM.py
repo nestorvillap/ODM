@@ -5,9 +5,13 @@ __students__ = 'Nombres_y_Apellidos'
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut
 import time
-from typing import Generator, Any, Self
+from typing import Generator, Any
 from geojson import Point
+from pymongo import MongoClient
+from pymongo.collection import Collection  # Esta sí es válida
+from pymongo.command_cursor import CommandCursor
 import pymongo
+from typing import Self
 import yaml
 
 def getLocationPoint(address: str) -> Point:
@@ -151,21 +155,21 @@ class Model:
         pass #No olvidar eliminar esta linea una vez implementado
 
     @classmethod
-    def aggregate(cls, pipeline: list[dict]) -> pymongo.command_cursor.CommandCursor:
+    def aggregate(cls, pipeline: list[dict]) -> CommandCursor:
         """ 
         Devuelve el resultado de una consulta aggregate. 
-        No hay nada que hacer en esta funcion.
-        Se utilizara para las consultas solicitadas
-        en el segundo proyecto de la practica.
+        No hay nada que hacer en esta función.
+        Se utilizará para las consultas solicitadas
+        en el segundo proyecto de la práctica.
 
         Parameters
         ----------
-            pipeline : list[dict]
-                lista de etapas de la consulta aggregate 
+        pipeline : list[dict]
+            lista de etapas de la consulta aggregate 
         Returns
         -------
-            pymongo.command_cursor.CommandCursor
-                cursor de pymongo con el resultado de la consulta
+        pymongo.command_cursor.CommandCursor
+            cursor de pymongo con el resultado de la consulta
         """ 
         return cls.db.aggregate(pipeline)
     
