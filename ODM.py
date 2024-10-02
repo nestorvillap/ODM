@@ -8,11 +8,13 @@ import time
 from typing import Generator, Any
 from geojson import Point
 from pymongo import MongoClient
-from pymongo.collection import Collection  # Esta sí es válida
+from pymongo.collection import Collection  #Esta sí es válida
 from pymongo.command_cursor import CommandCursor
 import pymongo
 from typing import Self
 import yaml
+from dotenv import load_dotenv
+import os
 
 def getLocationPoint(address: str) -> Point:
     """ 
@@ -199,7 +201,10 @@ class Model:
         En principio nada que hacer aqui salvo que se quieran realizar
         alguna otra inicialización/comprobaciones o cambios adicionales.
 
-        Parameters
+        Parameters    required_vars: set[str]
+        admissible_vars: set[str]
+        db: pymongo.collection.Collection
+
         ----------
             db_collection : pymongo.collection.Collection
                 Conexion a la collecion de la base de datos.
@@ -277,13 +282,39 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
             nombre de la base de datos
     """
     #TODO
-    # Inicializar base de datos
 
+    # Inicializar base de datos
+    
+    # Cargar las variables del archivo .env
+    load_dotenv()
+
+    # Obtener las variables de entorno
+    db_password = os.getenv("DB_PASSWORD")
+    db_username = os.getenv("DB_USERNAME")
+    url_server = os.getenv("URL_SERVER")
+
+    # Concatenar las variables para construir la URL de la base de datos
+    url_db = f"mongodb+srv://{db_username}:{db_password}{url_server}"
+
+    # Create a new client and connect to the server
+    client = MongoClient(url_db) # ServerApi puede ser anadido en futuro
+
+    # Send a ping to confirm a successful connection
+    try:
+        client.admin.command('ping')
+        print("Conexion exitosa!")
+    except Exception as e:
+        print(e)
+
+    
+    
     #TODO
     # Declarar tantas clases modelo colecciones existan en la base de datos
     # Leer el fichero de definiciones de modelos para obtener las colecciones
     # y las variables admitidas y requeridas para cada una de ellas.
     # Ejemplo de declaracion de modelo para colecion llamada MiModelo
+
+
     globals()["MiModelo"] = type("MiModelo", (Model,),{})
     # Ignorar el warning de Pylance sobre MiModelo, es incapaz de detectar
     # que se ha declarado la clase en la linea anterior ya que se hace

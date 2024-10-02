@@ -1,0 +1,9 @@
+{
+  "collection": "proveedores",
+  "required_vars": ["nombre"],
+  "admissible_vars": ["direcciones_almacenes"],
+  "types": {
+    "nombre": "string",
+    "direcciones_almacenes": "array"
+  }
+}
