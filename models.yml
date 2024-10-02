@@ -1,18 +1,31 @@
-MiModelo:
+compra:
+  required_vars:
+    - productos
+    - cliente
+    - precio_compra
+    - fecha_compra
+    - direccion_envio
+cliente:
   required_vars:
     - nombre
-    - apellido
-    - edad
+    - fecha_alta
   admissible_vars:
-    - dni
-    - direccion
-    - telefono
-MiOtroModelo:
+    - direcciones
+    - tarjetas_pago
+    - fecha_ultimo_acceso
+producto:
   required_vars:
     - nombre
-    - apellido
-    - edad
+    - codigo_producto_proveedor
+    - precio
+    - dimensiones
+    - peso
+    - proveedores
   admissible_vars:
-    - dni
-    - direccion
-    - telefono
+    - coste_envio
+    - descuento_rango_fechas
+proveedor:
+  required_vars:
+    - nombre
+  admissible_vars:
+    - direcciones_almacenes

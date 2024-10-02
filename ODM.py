@@ -305,8 +305,6 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         print("Conexion exitosa!")
     except Exception as e:
         print(e)
-
-    
     
     #TODO
     # Declarar tantas clases modelo colecciones existan en la base de datos
