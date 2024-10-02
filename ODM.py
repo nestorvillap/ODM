@@ -382,8 +382,3 @@ if __name__ == '__main__':
     #TODO
     #Ejemplo
     #Q1_r = MiModelo.aggregate(Q1)
-
-
-
-
-
