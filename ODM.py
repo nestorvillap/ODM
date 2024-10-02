@@ -102,8 +102,20 @@ class Model:
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
 
+        # Verifica que se hayan proporcionado todas las variables requeridas
+        missing_vars = self.required_vars - kwargs.keys()
+        if missing_vars:
+            raise ValueError(f"Faltan variables requeridas: {missing_vars}")
+
         # Asigna todos los valores en kwargs a las variables con 
         # nombre las claves en kwargs
+
+        # Verifica que todas las variables en kwargs sean admitidas
+        invalid_vars = kwargs.keys() - (self.required_vars | self.admissible_vars)
+        if invalid_vars:
+            raise ValueError(f"Variables no admitidas: {invalid_vars}")
+
+        # Si todo es válido, asigna los valores
         self.__dict__.update(kwargs)
 
     def __setattr__(self, name: str, value: str | dict) -> None:
@@ -114,7 +126,7 @@ class Model:
         #TODO
         # Realizar las comprabociones y gestiones necesarias
         # antes de la asignacion.
-
+        
         # Asigna el valor value a la variable name
         self.__dict__[name] = value
         
@@ -126,6 +138,7 @@ class Model:
         actualiza el documento existente con los nuevos valores del
         modelo.
         """
+
         #TODO
         pass #No olvidar eliminar esta linea una vez implementado
 
@@ -264,7 +277,7 @@ class ModelCursor:
         pass #No olvidar eliminar esta linea una vez implementado
 
 
-def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="abd") -> None:
+def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="local_store") -> None:
     """ 
     Declara las clases que heredan de Model para cada uno de los 
     modelos de las colecciones definidas en definitions_path.
@@ -299,27 +312,41 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     # Create a new client and connect to the server
     client = MongoClient(url_db) # ServerApi puede ser anadido en futuro
 
-    # Send a ping to confirm a successful connection
-    try:
-        client.admin.command('ping')
-        print("Conexion exitosa!")
-    except Exception as e:
-        print(e)
-    
+    #Conectar a MongoDB
+    db = client[db_name]
+
     #TODO
     # Declarar tantas clases modelo colecciones existan en la base de datos
     # Leer el fichero de definiciones de modelos para obtener las colecciones
     # y las variables admitidas y requeridas para cada una de ellas.
     # Ejemplo de declaracion de modelo para colecion llamada MiModelo
 
-
-    globals()["MiModelo"] = type("MiModelo", (Model,),{})
     # Ignorar el warning de Pylance sobre MiModelo, es incapaz de detectar
     # que se ha declarado la clase en la linea anterior ya que se hace
     # en tiempo de ejecucion.
-    MiModelo.init_class(db_collection=None, required_vars=None, admissible_vars=None)
+    
+    #Leer el archivo YAML que contiene las definiciones de los modelos
+    with open(definitions_path, 'r') as file:
+        definitions = yaml.safe_load(file)
 
+    #Crear dinámicamente las clases para cada modelo
+    for model_name, model_definition in definitions.items():
 
+        # Crear una clase dinámica para cada modelo
+        globals()[model_name] = type(model_name, (Model,), {})
+        
+        # Obtener las variables requeridas y permitidas desde el YAML
+        required_vars = set(model_definition.get('required_vars', []))
+        admissible_vars = set(model_definition.get('admissible_vars', []))
+
+        # Inicializar la clase con la colección de MongoDB y las variables requeridas/admitidas
+        globals()[model_name].init_class(
+            db_collection=db[model_name.lower()],  # Usamos el nombre del modelo en minúsculas como nombre de la colección
+            required_vars=required_vars,
+            admissible_vars=admissible_vars
+        )
+
+        print(f"Clase {model_name} creada e inicializada.")
 
 # TODO 
 # PROYECTO 2
@@ -348,7 +375,7 @@ if __name__ == '__main__':
     initApp()
 
     #Ejemplo
-    m = Model(nombre="Pablo", apellido="Ramos", edad=18)
+    m = Cliente(nombre="Pablo", apellido="Ramos", edad=18)
     m.save()
     m.nombre="Pedro"
     print(m.nombre)

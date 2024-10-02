@@ -1,11 +1,11 @@
-compra:
+Compra:
   required_vars:
     - productos
     - cliente
     - precio_compra
     - fecha_compra
     - direccion_envio
-cliente:
+Cliente:
   required_vars:
     - nombre
     - fecha_alta
@@ -13,7 +13,7 @@ cliente:
     - direcciones
     - tarjetas_pago
     - fecha_ultimo_acceso
-producto:
+Producto:
   required_vars:
     - nombre
     - codigo_producto_proveedor
@@ -24,7 +24,7 @@ producto:
   admissible_vars:
     - coste_envio
     - descuento_rango_fechas
-proveedor:
+Proveedor:
   required_vars:
     - nombre
   admissible_vars:
