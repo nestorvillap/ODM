@@ -13,6 +13,8 @@ from pymongo.command_cursor import CommandCursor
 import pymongo
 from typing import Self
 import yaml
+import os
+from dotenv import load_dotenv
 
 def getLocationPoint(address: str) -> Point:
     """ 
@@ -278,7 +280,33 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
     """
     #TODO
     # Inicializar base de datos
+    # Cargar las variables del archivo .env
+    load_dotenv()
 
+    # Obtener las variables de entorno
+    db_password = os.getenv("DB_PASSWORD")
+    db_username = os.getenv("DB_USERNAME")
+    url_server = os.getenv("URL_SERVER")
+
+    # Concatenar las variables para construir la URL de la base de datos
+    url_db = f"mongodb+srv://{db_username}:{db_password}{url_server}"
+
+    # Imprimir la URL resultante
+    print(url_db)
+
+    from pymongo.mongo_client import MongoClient
+    from pymongo.server_api import ServerApi
+
+    # Create a new client and connect to the server
+    client = MongoClient(url_db, server_api=ServerApi('1'))
+
+    # Send a ping to confirm a successful connection
+    try:
+        client.admin.command('ping')
+        print("Pinged your deployment. You successfully connected to MongoDB!")
+    except Exception as e:
+        print(e)
+        
     #TODO
     # Declarar tantas clases modelo colecciones existan en la base de datos
     # Leer el fichero de definiciones de modelos para obtener las colecciones
