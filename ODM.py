@@ -129,7 +129,13 @@ class Model:
         
         # Asigna el valor value a la variable name
         self.__dict__[name] = value
-        
+
+
+    def save(self) -> None:
+        """ Guarda el modelo en la base de datos """
+
+
+
     def save(self) -> None:
         """
         Guarda el modelo en la base de datos
@@ -140,7 +146,13 @@ class Model:
         """
 
         #TODO
-        pass #No olvidar eliminar esta linea una vez implementado
+        if "_id" in self.__dict__:
+            # Si el documento ya existe, realiza una actualización
+            self.db.update_one({"_id": self.__dict__["_id"]}, {"$set": self.__dict__})
+        else:
+            # Inserta el documento en la base de datos
+            result = self.db.insert_one(self.__dict__)
+            self.__dict__["_id"] = result.inserted_id
 
     def delete(self) -> None:
         """
@@ -375,7 +387,7 @@ if __name__ == '__main__':
     initApp()
 
     #Ejemplo
-    m = Cliente(nombre="Pablo", apellido="Ramos", edad=18)
+    m = Cliente(nombre="Pablo",fecha_alta="10/10/2010")
     m.save()
     m.nombre="Pedro"
     print(m.nombre)
