@@ -130,12 +130,6 @@ class Model:
         # Asigna el valor value a la variable name
         self.__dict__[name] = value
 
-
-    def save(self) -> None:
-        """ Guarda el modelo en la base de datos """
-
-
-
     def save(self) -> None:
         """
         Guarda el modelo en la base de datos
@@ -159,7 +153,9 @@ class Model:
         Elimina el modelo de la base de datos
         """
         #TODO
-        pass
+        self.db.deleteOne({"_id": self.__dict__["_id"]})
+
+        
     
     @classmethod
     def find(cls, filter: dict[str, str | dict]) -> Any:
@@ -395,17 +391,17 @@ if __name__ == '__main__':
     # Hacer pruebas para comprobar que funciona correctamente el modelo
     #TODO
     # Crear modelo
-
+    m = Cliente(nombre="Pablo",fecha_alta="10/10/2010")
     # Asignar nuevo valor a variable admitida del objeto 
-
+    m.nombre="Pedro"
     # Asignar nuevo valor a variable no admitida del objeto 
-
+    m.prueba="prueba"
     # Guardar
-
+    m.save()
     # Asignar nuevo valor a variable admitida del objeto
-
+    m.nombre="Test2"
     # Guardar
-
+    m.save()
     # Buscar nuevo documento con find
 
     # Obtener primer documento
