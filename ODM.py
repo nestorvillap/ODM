@@ -16,6 +16,7 @@ import yaml
 from dotenv import load_dotenv
 import os
 
+
 def getLocationPoint(address: str) -> Point:
     """ 
     Obtiene las coordenadas de una dirección en formato geojson.Point
@@ -139,6 +140,11 @@ class Model:
         modelo.
         """
 
+        # Verifica que todas las variables en kwargs sean admitidas
+        invalid_vars = kwargs.keys() - (self.required_vars | self.admissible_vars)
+        if invalid_vars:
+            raise ValueError(f"Variables no admitidas: {invalid_vars}")
+
         #TODO
         if "_id" in self.__dict__:
             # Si el documento ya existe, realiza una actualización
@@ -156,7 +162,7 @@ class Model:
         self.db.deleteOne({"_id": self.__dict__["_id"]})
 
         
-    
+    #Hay que hacerlo
     @classmethod
     def find(cls, filter: dict[str, str | dict]) -> Any:
         """ 
@@ -177,6 +183,7 @@ class Model:
         # cls es el puntero a la clase
         pass #No olvidar eliminar esta linea una vez implementado
 
+    #Hay que hacerlo
     @classmethod
     def aggregate(cls, pipeline: list[dict]) -> CommandCursor:
         """ 
@@ -214,7 +221,8 @@ class Model:
         """ 
         #TODO
         pass
-
+    
+    #Secundario
     @classmethod
     def init_class(cls, db_collection: pymongo.collection.Collection, required_vars: set[str], admissible_vars: set[str]) -> None:
         """ 
@@ -238,7 +246,7 @@ class Model:
         cls.required_vars = required_vars
         cls.admissible_vars = admissible_vars
         
-
+#Primeras cosas que hay que hacer
 class ModelCursor:
     """ 
     Cursor para iterar sobre los documentos del resultado de una
@@ -284,7 +292,7 @@ class ModelCursor:
         #TODO
         pass #No olvidar eliminar esta linea una vez implementado
 
-
+#Poner mas bonito
 def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://localhost:27017/", db_name="local_store") -> None:
     """ 
     Declara las clases que heredan de Model para cada uno de los 
@@ -355,6 +363,18 @@ def initApp(definitions_path: str = "./models.yml", mongodb_uri="mongodb://local
         )
 
         print(f"Clase {model_name} creada e inicializada.")
+
+class Cliente(Model):
+    pass
+
+class Producto(Model):
+    pass
+
+class Proveedor(Model):
+    pass
+
+class Compra(Model):
+    pass
 
 # TODO 
 # PROYECTO 2
