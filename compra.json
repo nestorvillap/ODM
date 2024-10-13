@@ -1,0 +1,19 @@
+{
+    "_id":{"$oid":"670c51e5ebf2f6a02ba121d0"},
+    "productos":[{"$oid":"670c51e0ebf2f6a02ba121ce"}],
+    "cliente":{"$oid":"670c51e2ebf2f6a02ba121cf"},
+    "precio_compra":{"$numberDouble":"99.99"},
+    "fecha_compra":"06/11/2021",
+    "direccion_envio":{
+        "calle":"Avenida de la Constitución",
+        "numero":"1",
+        "ciudad":"Sevilla",
+        "codigo_postal":"41001",
+        "pais":"España",
+        "location":{
+            "type":"Point","coordinates":
+            [{"$numberDouble":"-6.074231"},
+            {"$numberDouble":"37.386032"}]
+        }
+    }
+}

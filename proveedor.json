@@ -1,0 +1,17 @@
+{
+    "_id":{"$oid":"670c51e0ebf2f6a02ba121cd"},
+    "nombre":"Proveedor Ejemplo",
+    "direcciones_almacenes":[{
+        "calle":"Calle de Alcalá",
+        "numero":"50",
+        "ciudad":"Madrid",
+        "codigo_postal":"28014",
+        "pais":"España",
+        "location":{
+            "type":"Point",
+            "coordinates":[{
+                "$numberDouble":"-3.698678"},
+                {"$numberDouble":"40.418112"}]
+        }
+    }]
+}

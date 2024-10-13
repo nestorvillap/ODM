@@ -1,0 +1,12 @@
+{
+    "_id":{"$oid":"670c51e0ebf2f6a02ba121ce"},
+    "nombre":"Producto Ejemplo",
+    "codigo_producto_proveedor":"ABC123",
+    "precio":{"$numberDouble":"89.99"},
+    "dimensiones":{
+        "ancho":{"$numberInt":"10"},
+        "alto":{"$numberInt":"20"},
+        "profundidad":{"$numberInt":"5"}},
+    "peso":{"$numberDouble":"1.5"},
+    "proveedores":[{"$oid":"670c51e0ebf2f6a02ba121cd"}]
+}
