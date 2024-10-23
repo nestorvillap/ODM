@@ -17,6 +17,7 @@ def main():
             }
         ]
     )
+
     proveedor.save()
     print(f"Proveedor guardado: {proveedor.to_dict()}")
 
@@ -29,6 +30,7 @@ def main():
         peso=1.5,
         proveedores=[proveedor]
     )
+    
     producto.save()
     print(f"Producto guardado: {producto.to_dict()}")
 

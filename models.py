@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def get_location_point(address: str) -> Point:
-    geolocator = Nominatim(user_agent="MiAplicacion/1.0 (tu_email@ejemplo.com)")
+    geolocator = Nominatim(user_agent="ODM/1.0 (nestorvillap@gmail.com)")
     location = None
     retry_count = 0
     max_retries = 5
@@ -212,20 +212,6 @@ class Model:
         except pymongo.errors.PyMongoError as e:
             print(f"Error al buscar documentos: {e}")
             return ModelCursor(cls, [])
-
-    @classmethod
-    def find_by_id(cls, id: str) -> Union['Model', None]:
-        """
-        Busca un documento por su _id.
-        """
-        try:
-            document = cls.db.find_one({"_id": ObjectId(id)})
-            if document:
-                return cls(**document)
-            return None
-        except pymongo.errors.PyMongoError as e:
-            print(f"Error al buscar por ID: {e}")
-            return None
 
     @classmethod
     def init_class(cls, db_collection: Collection, required_vars: set[str], admissible_vars: set[str]) -> None:

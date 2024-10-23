@@ -1,0 +1,23 @@
+use('local_store');
+
+//Listado de todas las compras de un cliente
+db.compra.aggregate([
+  {
+    $lookup: {
+      from: "cliente",
+      localField: "cliente",
+      foreignField: "_id",
+      as: "cliente_info"
+    }
+  },
+  {
+    $group: {
+      _id: "$cliente_info.nombre",
+      compras: {
+        $push: {
+          _id: "$_id", // ObjectId de la compra
+        }
+      }
+    }
+  }
+])
