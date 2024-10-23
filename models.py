@@ -15,6 +15,8 @@ from geojson import Point
 import logging
 
 # Configurar el registro
+#Cambiar como se guarda el id y parsearlo a string
+# Ademas cuando guardamos 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
