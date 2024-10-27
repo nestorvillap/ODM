@@ -28,7 +28,7 @@ def seed_data():
         # Forzar la ubicación manualmente si es necesario (ejemplo con coordenadas conocidas)
         if nombre == "Modas Paqui":
             direccion_almacen.location = {'type': 'Point', 'coordinates': [-3.703790, 40.416775]}  # Coordenadas de Madrid
-        direccion_almacen.save()
+        # No llamar a direccion_almacen.save()
 
         proveedor = Proveedor(
             nombre=nombre,
@@ -84,24 +84,32 @@ def seed_data():
     # Crear clientes, incluyendo "Beatriz Gómez"
     clientes = []
     nombres_clientes = ["Luis Martínez", "Ana Sánchez", "Carlos López", "Beatriz Gómez", "María Fernández"]
-    direcciones_clientes = [
-        {"calle": "Calle Mayor", "numero": "15", "ciudad": "Madrid", "codigo_postal": "28013", "pais": "España"},
-        {"calle": "Passeig de Gràcia", "numero": "8", "ciudad": "Barcelona", "codigo_postal": "08007", "pais": "España"},
-        {"calle": "Gran Vía", "numero": "7", "ciudad": "Madrid", "codigo_postal": "28013", "pais": "España"},
-        {"calle": "Avenida de la Constitución", "numero": "18", "ciudad": "Sevilla", "codigo_postal": "41001", "pais": "España"},
-        {"calle": "Praça do Comércio", "numero": "25", "ciudad": "Lisboa", "codigo_postal": "1100-148", "pais": "Portugal"}
+    direcciones_base = [
+        {"calle": "Calle Mayor", "ciudad": "Madrid", "codigo_postal": "28013", "pais": "España"},
+        {"calle": "Passeig de Gràcia", "ciudad": "Barcelona", "codigo_postal": "08007", "pais": "España"},
+        {"calle": "Gran Vía", "ciudad": "Madrid", "codigo_postal": "28013", "pais": "España"},
+        {"calle": "Avenida de la Constitución", "ciudad": "Sevilla", "codigo_postal": "41001", "pais": "España"},
+        {"calle": "Praça do Comércio", "ciudad": "Lisboa", "codigo_postal": "1100-148", "pais": "Portugal"}
     ]
 
     for i, nombre in enumerate(nombres_clientes):
-        direccion_envio = Direccion(**direcciones_clientes[i])
-        # Forzar la ubicación manualmente si es necesario
-        if nombre == "Beatriz Gómez":
-            direccion_envio.location = {'type': 'Point', 'coordinates': [-5.996295, 37.389092]}  # Coordenadas de Sevilla
-        direccion_envio.save()
+        # Crear múltiples direcciones de envío para cada cliente
+        direcciones_envio = []
+        num_direcciones = random.randint(2, 4)  # Cada cliente tendrá entre 2 y 4 direcciones de envío
+        for j in range(num_direcciones):
+            direccion_data = direcciones_base[i].copy()
+            direccion_data["numero"] = str(random.randint(1, 100))
+            direccion_envio = Direccion(**direccion_data)
+            # Forzar la ubicación manualmente si es necesario
+            if nombre == "Beatriz Gómez" and j == 0:
+                direccion_envio.location = {'type': 'Point', 'coordinates': [-5.996295, 37.389092]}  # Coordenadas de Sevilla
+            # No llamar a direccion_envio.save()
+            direcciones_envio.append(direccion_envio)
+
         cliente = Cliente(
             nombre=nombre,
             fecha_alta=(datetime.now() - timedelta(days=random.randint(100, 1000))).strftime("%Y-%m-%d"),
-            direcciones_envio=[direccion_envio]
+            direcciones_envio=direcciones_envio
         )
         cliente.save()
         clientes.append(cliente)
@@ -113,7 +121,8 @@ def seed_data():
         producto_seleccionado = random.sample(productos, k=random.randint(1, 5))
         precio_total = sum([p.precio for p in producto_seleccionado])
         fecha_compra = (datetime.now() - timedelta(days=random.randint(1, 365))).strftime("%Y-%m-%d")
-        direccion_envio = cliente.direcciones_envio[0]
+        # Seleccionar una dirección de envío aleatoria del cliente
+        direccion_envio = random.choice(cliente.direcciones_envio)
 
         compra = Compra(
             productos=producto_seleccionado,
@@ -132,7 +141,8 @@ def seed_data():
         for _ in range(5):  # Crear 5 compras en esa fecha
             producto_seleccionado = random.sample(productos, k=random.randint(1, 5))
             precio_total = sum([p.precio for p in producto_seleccionado])
-            direccion_envio = cliente_beatriz.direcciones_envio[0]
+            # Seleccionar una dirección de envío aleatoria de Beatriz Gómez
+            direccion_envio = random.choice(cliente_beatriz.direcciones_envio)
 
             compra = Compra(
                 productos=producto_seleccionado,
