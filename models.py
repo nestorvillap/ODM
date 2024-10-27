@@ -197,7 +197,16 @@ class Model:
         except Exception as e:
             logger.error(f"Error al buscar documentos: {e}")
             return ModelCursor(cls, [])
-
+    
+    @classmethod
+    def aggregate(cls, pipeline: list[dict]) -> 'ModelCursor':
+        try:
+            cursor = cls.db.aggregate(pipeline)
+            return ModelCursor(cls, cursor)
+        except Exception as e:
+            logger.error(f"Error al realizar la agregación: {e}")
+            return ModelCursor(cls, [])
+        
     @classmethod
     def init_class(cls, db_collection: collection.Collection, required_vars: set[str], admissible_vars: set[str]) -> None:
         cls.db = db_collection
