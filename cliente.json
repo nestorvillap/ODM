@@ -1,17 +1,28 @@
 {
-    "_id":{"$oid":"670c51e2ebf2f6a02ba121cf"},
-    "nombre":"Nestor Villa",
-    "fecha_alta":"05/11/2021",
-    "direcciones_envio":[{
-        "calle":"Calle Gran Vía",
-        "numero":"30",
-        "ciudad":"Madrid",
-        "codigo_postal":"28013",
-        "pais":"España",
-        "location":{
-            "type":"Point",
-            "coordinates":[{"$numberDouble":"-3.871711"},
-            {"$numberDouble":"40.471724"}]
+    "_id": {
+      "$oid": "67190957ce5cb3a522735306"
+    },
+    "nombre": "Pepe García",
+    "fecha_alta": "05/11/2021",
+    "direcciones_envio": [
+      {
+        "calle": "Calle Gran Vía",
+        "numero": "30",
+        "ciudad": "Madrid",
+        "codigo_postal": "28013",
+        "pais": "España",
+        "location": {
+          "type": "Point",
+          "coordinates": [
+            {
+              "$numberDouble": "-3.871711"
+            },
+            {
+              "$numberDouble": "40.471724"
+            }
+          ]
         }
-    }]
-}
+      }
+    ]
+  }
+  

@@ -30,14 +30,14 @@ def main():
         peso=1.5,
         proveedores=[proveedor]
     )
-    
+
     producto.save()
     print(f"Producto guardado: {producto.to_dict()}")
 
     # Crear un cliente de ejemplo
     cliente = Cliente(
         nombre="Pepe García",
-        fecha_alta="05/11/2021",
+        fecha_alta="2019-05-11",
         direcciones_envio=[
             {
                 "calle": "Calle Gran Vía",
@@ -56,7 +56,7 @@ def main():
         productos=[producto],
         cliente=cliente,
         precio_compra=99.99,
-        fecha_compra="06/11/2021",
+        fecha_compra="2021-05-11",
         direccion_envio={
             "calle": "Avenida de la Constitución",
             "numero": "1",

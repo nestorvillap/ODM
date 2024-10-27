@@ -11,9 +11,10 @@
         "codigo_postal":"41001",
         "pais":"España",
         "location":{
-            "type":"Point","coordinates":
-            [{"$numberDouble":"-6.074231"},
-            {"$numberDouble":"37.386032"}]
+            "type":"Point",
+            "coordinates":
+                [{"$numberDouble":"-6.074231"},
+                {"$numberDouble":"37.386032"}]
         }
     }
 }
