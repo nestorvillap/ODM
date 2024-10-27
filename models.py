@@ -125,8 +125,8 @@ class Model:
     def to_dict(self, processed_objects=None) -> dict:
         if processed_objects is None:
             processed_objects = set()
-        if id(self) in processed_objects:
-            return self._id if hasattr(self, '_id') else None
+        if id(self) in processed_objects and hasattr(self, '_id') and self._id is not None:
+            return self._id
         processed_objects.add(id(self))
 
         def convert_value(val):
@@ -151,6 +151,7 @@ class Model:
         if self._id is not None:
             doc['_id'] = self._id
         return doc
+
 
     def to_update_dict(self) -> dict:
         update_doc = {}

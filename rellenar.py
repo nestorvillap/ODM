@@ -64,18 +64,30 @@ def seed_data():
     ]
 
     for i, nombre_producto in enumerate(nombres_productos):
-        # Asignar "Modas Paqui" como proveedor para productos con "manga corta" en el nombre
+        # Definir el número de proveedores que puede tener cada producto (entre 1 y 3)
+        num_proveedores = random.randint(1, 3)
+
+        # Asignar "Modas Paqui" como uno de los proveedores para productos con "manga corta" en el nombre,
+        # y luego completar con proveedores adicionales si el número de proveedores es mayor a 1
         if "manga corta" in nombre_producto.lower():
             proveedores_producto = [p for p in proveedores if p.nombre == "Modas Paqui"]
+            if num_proveedores > 1:
+                # Agregar proveedores adicionales sin duplicar "Modas Paqui"
+                proveedores_producto += random.sample(
+                    [p for p in proveedores if p.nombre != "Modas Paqui"],
+                    k=num_proveedores - 1
+                )
         else:
-            proveedores_producto = [random.choice(proveedores)]
+            # Asignar proveedores aleatorios según el número determinado
+            proveedores_producto = random.sample(proveedores, k=num_proveedores)
+
         producto = Producto(
             nombre=nombre_producto,
             codigo_producto_proveedor=f"PRD{i+1:03d}",
             precio=round(random.uniform(10, 200), 2),
             dimensiones={"ancho": random.randint(5, 50), "alto": random.randint(5, 50), "profundidad": random.randint(5, 50)},
             peso=round(random.uniform(0.5, 10), 2),
-            proveedores=proveedores_producto
+            proveedores=proveedores_producto  # Ahora con múltiples proveedores posibles
         )
         producto.save()
         productos.append(producto)
@@ -125,13 +137,14 @@ def seed_data():
         direccion_envio = random.choice(cliente.direcciones_envio)
 
         compra = Compra(
-            productos=producto_seleccionado,
-            cliente=cliente,
+            productos=[p.to_dict() for p in producto_seleccionado],
+            cliente=cliente.to_dict(),
             precio_compra=precio_total,
             fecha_compra=fecha_compra,
-            direccion_envio=direccion_envio
+            direccion_envio=direccion_envio.to_dict()
         )
         compra.save()
+
         print(f"Compra guardada: {compra.to_dict()}")
 
     # Añadir compras específicas para "Beatriz Gómez" el "2024-04-11"
