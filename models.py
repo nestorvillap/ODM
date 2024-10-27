@@ -199,13 +199,13 @@ class Model:
             return ModelCursor(cls, [])
     
     @classmethod
-    def aggregate(cls, pipeline: list[dict]) -> 'ModelCursor':
+    def aggregate(cls, pipeline: list[dict], raw: bool = False) -> 'ModelCursor':
         try:
             cursor = cls.db.aggregate(pipeline)
-            return ModelCursor(cls, cursor)
+            return ModelCursor(cls, cursor, raw=raw)
         except Exception as e:
             logger.error(f"Error al realizar la agregación: {e}")
-            return ModelCursor(cls, [])
+            return ModelCursor(cls, [], raw=raw)
         
     @classmethod
     def init_class(cls, db_collection: collection.Collection, required_vars: set[str], admissible_vars: set[str]) -> None:
@@ -305,13 +305,19 @@ class Compra(Model):
     _date_fields = {'fecha_compra'}
 
 class ModelCursor:
-    def __init__(self, model_class: Type[Model], cursor):
+    def __init__(self, model_class: Type[Model], cursor, raw: bool = False):
         self.model_class = model_class
         self.cursor = cursor
-    def __iter__(self) -> Generator[Model, None, None]:
+        self.raw = raw
+
+    def __iter__(self) -> Generator[Any, None, None]:
         while True:
             try:
-                yield self.model_class(**next(self.cursor))
+                doc = next(self.cursor)
+                if self.raw:
+                    yield doc
+                else:
+                    yield self.model_class(**doc)
             except StopIteration:
                 break
             except Exception as e:
@@ -325,3 +331,6 @@ def init_app() -> None:
     Producto.init_class(db["producto"], Producto.required_vars, Producto.admissible_vars)
     Compra.init_class(db["compra"], Compra.required_vars, Compra.admissible_vars)
     Proveedor.init_class(db["proveedor"], Proveedor.required_vars, Proveedor.admissible_vars)
+
+    # Crear índice geoespacial en 'direccion_envio.location'
+    Compra.db.create_index([("direccion_envio.location", pymongo.GEOSPHERE)])
