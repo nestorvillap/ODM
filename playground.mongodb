@@ -1,23 +1,272 @@
 use('local_store');
 
 //Listado de todas las compras de un cliente
+
+//1. Listado de todas las compras de un cliente
 db.compra.aggregate([
   {
-    $lookup: {
-      from: "cliente",
-      localField: "cliente",
-      foreignField: "_id",
-      as: "cliente_info"
+    $group: {
+      _id: "$cliente.nombre",  // Agrupamos por nombre del cliente
+      compras: { $push: { $toString: "$_id" } }  // Convertimos _id a string directamente en el array
+    }
+  },
+  {
+    $project: {
+      nombre_cliente: "$_id",  // Ponemos nombre_cliente al principio
+      compras: 1,              // Incluimos el array de compras después
+      _id: 0                    // Eliminamos el campo _id
+    }
+  }
+])
+
+//2. Listado de todos los proveedores para un producto.
+db.producto.aggregate([
+  { $unwind: "$proveedores" },  // Desanida cada elemento del array proveedores
+  {
+    $group: {
+      _id: "$nombre",  // Agrupamos por el nombre del producto
+      proveedores: { $push: "$proveedores.nombre" }  // Recolectamos los nombres de proveedores en un array
+    }
+  },
+  {
+    $project: {
+      _id: 0,  // Opcional: elimina el campo _id si solo quieres ver nombre_producto
+      nombre_producto: "$_id",  // Renombramos _id a nombre_producto para mayor claridad
+      proveedores: 1  // Incluimos la lista de proveedores
+    }
+  }
+])
+
+//3. Listado de todos los productos diferentes comprados por un cliente
+db.compra.aggregate([
+  { $unwind: "$productos" },
+  {
+    $group: {
+      _id: "$cliente.nombre",  // Agrupamos por nombre del cliente
+      productos: { $addToSet: "$productos.nombre" }  // Convertimos _id a string directamente en el array
+    }
+  },
+  {
+    $project: {
+      nombre_cliente: "$_id",  // Ponemos nombre_cliente al principio
+      productos: 1,              // Incluimos el array de compras después
+      _id: 0                    // Eliminamos el campo _id
+    }
+  }
+])
+
+//4. Listado de productos vendidos por “Modas Paqui” cuyo nombre contenga “manga corta”.
+db.producto.aggregate([
+  { $unwind: "$proveedores" },  // Desanidamos el array de proveedores
+  {
+    $match: {
+      "proveedores.nombre": "Modas Paqui",  // Filtra por el nombre del proveedor
+      "nombre": { $regex: /manga corta/i }  // Filtra productos cuyo nombre contenga "manga corta" (insensible a mayúsculas)
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      nombre_producto: "$nombre",  // Incluye el nombre del producto
+      proveedor: "$proveedores.nombre"  // Incluye el nombre del proveedor
+    }
+  }
+])
+
+
+//5. Calcular el peso y volumen total de los productos comprados por un cliente un día determinado.
+db.compra.aggregate([
+  {
+    $match: {
+      "cliente.nombre": "Beatriz Gómez",  // Filtra por nombre del cliente
+      "fecha_compra": ISODate("2024-04-11")  // Filtra por fecha de compra en formato ISODate
+    }
+  },
+  { $unwind: "$productos" },  // Desanidamos cada producto en el array productos
+  {
+    $group: {
+      _id: null,  
+      peso_total_kg: { $sum: "$productos.peso" },  // Sumamos el peso de cada producto
+      volumen_total_metros: {
+        $sum: {
+          $multiply: [
+            { $divide: [{ $toDouble: "$productos.dimensiones.ancho" }, 100] },  // Convertimos ancho a metros
+            { $divide: [{ $toDouble: "$productos.dimensiones.alto" }, 100] },   // Convertimos alto a metros
+            { $divide: [{ $toDouble: "$productos.dimensiones.profundidad" }, 100] }  // Convertimos profundidad a metros
+          ]
+        }
+      }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      peso_total_kg: 1,
+      volumen_total_metros: 1  // Volumen total en metros cúbicos
+    }
+  }
+])
+
+
+//6. Calcular el número medio de envíos por mes y almacén.
+
+db.compra.aggregate([
+  {
+    $unwind: "$productos"  // Desanidamos el array de productos para acceder a cada producto
+  },
+  {
+    $unwind: "$productos.proveedores"  // Desanidamos los proveedores de cada producto
+  },
+  {
+    $unwind: "$productos.proveedores.direcciones_almacenes"  // Desanidamos las direcciones de almacén de cada proveedor
+  },
+  {
+    $group: {
+      _id: {
+        almacen: "$productos.proveedores.direcciones_almacenes.calle",  // Agrupamos por almacén específico
+        mes: { $month: "$fecha_compra" },  // Extraemos el mes de la fecha de compra
+        año: { $year: "$fecha_compra" }    // Extraemos el año para diferenciar entre años
+      },
+      total_envios: { $sum: 1 }  // Contamos el número de envíos por almacén y mes
     }
   },
   {
     $group: {
-      _id: "$cliente_info.nombre",
-      compras: {
-        $push: {
-          _id: "$_id", // ObjectId de la compra
-        }
-      }
+      _id: "$_id.almacen",  // Agrupamos por almacén para calcular el promedio mensual
+      promedio_envios_mensuales: { $avg: "$total_envios" }  // Calculamos el promedio mensual de envíos
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      almacen: "$_id",  // Renombramos _id a almacén para claridad
+      promedio_envios_mensuales: 1  // Incluimos el promedio de envíos mensuales
     }
   }
 ])
+
+
+//7. Listado con los tres proveedores con más volumen de facturación. Mostrar proveedor y volumen de facturación.
+db.compra.aggregate([
+  { $unwind: "$productos" },  // Desanida cada producto en el array productos
+  { $unwind: "$productos.proveedores" },  // Desanida cada proveedor dentro de cada producto
+  {
+    $match: {
+      "productos.proveedores.nombre": { $ne: null }  // Filtra solo proveedores con nombre definido
+    }
+  },
+  {
+    $group: {
+      _id: "$productos.proveedores.nombre",   // Agrupamos por nombre del proveedor
+      volumen_facturacion: { $sum: "$precio_compra" }  // Sumamos el precio de compra para el volumen total
+    }
+  },
+  { $sort: { volumen_facturacion: -1 } },  // Ordenamos en orden descendente por volumen de facturación
+  { $limit: 3 },  // Limitamos el resultado a los tres proveedores con mayor facturación
+  {
+    $project: {
+      _id: 0,
+      proveedor: "$_id",               // Renombramos _id a proveedor
+      volumen_facturacion: 1           // Incluimos el volumen de facturación
+    }
+  }
+])
+
+//8. Listado de almacenes cerca de unas coordenadas determinadas (100km de distancia máxima) ordenadas por orden de distancia.
+db.proveedor.aggregate([
+  {
+    $geoNear: {
+      near: { type: "Point", coordinates: [-9.137398, 38.710141] },  // Coordenadas de referencia
+      distanceField: "distancia",  // Campo para almacenar la distancia calculada
+      maxDistance: 100 * 1000,  // Distancia máxima en metros (100 km = 100000 metros)
+      spherical: true,  // Usa cálculos esféricos para la distancia
+      query: { "direcciones_almacenes.location": { $exists: true } }  // Asegura que solo se consideren almacenes con coordenadas
+    }
+  },
+  { $unwind: "$direcciones_almacenes" },  // Desanida el array direcciones_almacenes
+  {
+    $sort: { distancia: 1 }  // Ordena los resultados por distancia ascendente
+  },
+  {
+    $project: {
+      _id: 0,
+      nombre_proveedor: "$nombre",  // Incluye el nombre del proveedor
+      direccion_almacen: "$direcciones_almacenes.calle",  // Incluye la calle del almacén
+      ciudad: "$direcciones_almacenes.ciudad",  // Incluye la ciudad del almacén
+      distancia: 1,  // Incluye la distancia calculada
+      location: "$direcciones_almacenes.location"  // Incluye las coordenadas del almacén
+    }
+  }
+])
+
+//9. Listado de compras con destino dentro de un polígono cuyos vértices vienen definidos por coordenadas.
+db.compra.aggregate([
+  {
+    $match: {
+      "direccion_envio.location": {
+        $geoWithin: {
+          $geometry: {
+            type: "Polygon",
+            coordinates: [[
+              [-4.3452, 40.7336],   // Oeste de la provincia
+              [-3.3580, 40.8174],   // Norte de la provincia
+              [-3.2087, 40.3119],   // Este de la provincia
+              [-4.0261, 40.1802],   // Sur de la provincia
+              [-4.3452, 40.7336]    // Cerrar el polígono volviendo al primer vértice
+            ]]            
+          }
+        }
+      }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      compra_id: "$_id",  // Incluye el ID de la compra
+      cliente: "$cliente.nombre",  // Incluye el nombre del cliente
+      productos: "$productos.nombre",  // Incluye los nombres de los productos comprados
+      direccion_envio: "$direccion_envio",  // Incluye la dirección completa de envío
+      location: "$direccion_envio.location"  // Incluye la ubicación geoespacial de destino
+    }
+  }
+])
+
+//10. Guardar en una tabla nueva el listado de compras que tienen que ser enviados desde un almacén en un día determinado
+db.compra.aggregate([
+  {
+    $match: {
+      fecha_compra: ISODate("2024-04-11")  // Filtra por la fecha específica de compra
+    }
+  },
+  { $unwind: "$productos" },  // Desanida el array de productos
+  { $unwind: "$productos.proveedores" },  // Desanida los proveedores de cada producto
+  { $unwind: "$productos.proveedores.direcciones_almacenes" },  // Desanida las direcciones de almacén de cada proveedor
+  {
+    $match: {
+      "productos.proveedores.direcciones_almacenes.calle": "Avenida de Andalucía",  // Filtra por la calle del almacén
+      "productos.proveedores.direcciones_almacenes.ciudad": "Sevilla",  // Filtra por la ciudad del almacén
+      "productos.proveedores.direcciones_almacenes.location.coordinates": [ -5.963709, 37.387533 ]  // Filtra por las coordenadas exactas del almacén
+    }
+  },
+  {
+    $project: {
+      _id: 1,  // Mantiene el _id original de la compra
+      cliente: "$cliente.nombre",
+      productos: "$productos.nombre",
+      precio_compra: 1,
+      fecha_compra: 1,
+      direccion_envio: 1,
+      almacen: {
+        direccion: "$productos.proveedores.direcciones_almacenes.calle",
+        ciudad: "$productos.proveedores.direcciones_almacenes.ciudad",
+        location: "$productos.proveedores.direcciones_almacenes.location"
+      }
+    }
+  },
+  {
+    $out: "compras_a_enviar"  // Guarda los resultados en una nueva colección
+  }
+])
+
+
+
