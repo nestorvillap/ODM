@@ -48,6 +48,3 @@ for cliente in Cliente.find({"nombre": "Juan Perez"}):
 - MongoDB
 - `pymongo`, `geopy`, `geojson`
 
-## **Contributing**
-
-Contributions are welcome! Please open an issue or submit a pull request for improvements.
