@@ -2,13 +2,14 @@ from typing import Any, Type, Generator
 import pymongo
 from pymongo import MongoClient, collection
 from bson import ObjectId
-from config import URL_DB, DB_NAME
+from config import URL_DB, DB_NAME, CACHE_PORT, CACHE_HOST, CACHE_USERNAME, CACHE_PASSWORD
 import datetime
 from geopy.geocoders import Nominatim
 from geopy.exc import GeocoderTimedOut, GeocoderServiceError, GeocoderUnavailable
 from geojson import Point
 import logging
 import time
+import redis
 
 # Configuración del logger
 logging.basicConfig(level=logging.WARNING)
@@ -109,6 +110,8 @@ class Model:
         pass
 
     def save(self) -> None:
+        #Hay que actualizarlo tambien en la cache
+        
         self.pre_save()
         if self._id:
             if self._changed_fields:
@@ -119,17 +122,53 @@ class Model:
             self._changed_fields.clear()
 
     def delete(self) -> None:
+        # Borrar tambien de la cache
+        
         if self._id:
             self.db.delete_one({"_id": self._id})
 
     @classmethod
     def find(cls, filter: dict[str, Any]) -> 'ModelCursor':
+        # Guardar la consulta en cache
+
+        # pensar en un id guapo = aggregate_{filterSerializado}
+        
         if "_id" in filter and isinstance(filter["_id"], str):
             filter["_id"] = ObjectId(filter["_id"])
         return ModelCursor(cls, cls.db.find(filter))
 
     @classmethod
+    def find_by_id(cls, id: Any) -> 'Model':
+        #Aqui hay que implementar Redis 
+
+        #Ver si esta en la cache, si esta en la cache lo usamos ahi
+
+        #Y si no esta en la cache buscamos en la base de datos
+        
+        #Esto realmente no hace, porque nosotros ya guardamos object id
+        #Pero no esta mal tenerlo por si acaso
+        if isinstance(id, str):
+            id = ObjectId(id)
+        #Probamos a bucar por el id
+        try:
+            doc = cls.db.find_one({'_id': id})
+            #si lo encontramos lo devolvemos
+            if doc:
+                return cls(**doc)
+        except Exception as e:
+            logger.warning(f"Error finding document by ID: {e}")
+        #Si no lo encontramos no lo devolvemos
+        return None
+    
+    @classmethod
     def aggregate(cls, pipeline: list[dict]) -> 'ModelCursor':
+        # Guardar la consulta en cache 
+        # Tenemos que comprobar si ya lo hemos guardado
+        # Para eso necesitamos guardarlo con un id
+        # y saber sacar el id para buscarlo
+
+        # pensar en un id guapo = aggregate_{pipelineSerializado}.
+
         cursor = cls.db.aggregate(pipeline)
         return ModelCursor(cls, cursor)
 
@@ -221,9 +260,15 @@ class ModelCursor:
             yield self.model_class(**doc)
 
 def init_app() -> None:
+    #Database
     client = MongoClient(URL_DB)
     db = client[DB_NAME]
     Cliente.init_class(db["cliente"])
     Producto.init_class(db["producto"])
     Compra.init_class(db["compra"])
     Proveedor.init_class(db["proveedor"])
+    #Cache
+    r = redis.Redis(host=CACHE_HOST, port=CACHE_PORT,
+        username=CACHE_USERNAME, # use your Redis user. More info https://redis.io/docs/latest/operate/oss_and_stack/management/security/acl/
+        password=CACHE_PASSWORD, # use your Redis password
+        ssl=False)
