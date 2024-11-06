@@ -161,7 +161,8 @@ class Model:
         return None
     
     @classmethod
-    def aggregate(cls, pipeline: list[dict]) -> 'ModelCursor':
+    def aggregate(cls, pipeline: list[dict], raw: bool = False) -> 'ModelCursor':
+        cursor = cls.db.aggregate(pipeline)
         # Guardar la consulta en cache 
         # Tenemos que comprobar si ya lo hemos guardado
         # Para eso necesitamos guardarlo con un id
@@ -169,11 +170,11 @@ class Model:
 
         # pensar en un id guapo = aggregate_{pipelineSerializado}.
 
-        cursor = cls.db.aggregate(pipeline)
-        return ModelCursor(cls, cursor)
+        return ModelCursor(cls, cursor, raw=raw)
 
     @classmethod
     def init_class(cls, db_collection: collection.Collection) -> None:
+        
         cls.db = db_collection
         cls._create_indexes()
 
@@ -251,13 +252,17 @@ class Compra(Model):
     _indexes = [("direccion_envio.location", pymongo.GEOSPHERE)]
 
 class ModelCursor:
-    def __init__(self, model_class: Type[Model], cursor):
+    def __init__(self, model_class: Type[Model], cursor, raw: bool = False):
         self.model_class = model_class
         self.cursor = cursor
+        self.raw = raw
 
     def __iter__(self) -> Generator[Any, None, None]:
         for doc in self.cursor:
-            yield self.model_class(**doc)
+            if self.raw:
+                yield doc
+            else:
+                yield self.model_class(**doc)
 
 def init_app() -> None:
     #Database
