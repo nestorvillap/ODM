@@ -112,7 +112,6 @@ class Model:
     def save(self) -> None:
         #Hay que actualizarlo tambien en la cache
         
-        self.pre_save()
         if self._id:
             if self._changed_fields:
                 self.db.update_one({"_id": self._id}, {"$set": self.to_update_dict()})
@@ -130,7 +129,6 @@ class Model:
     @classmethod
     def find(cls, filter: dict[str, Any]) -> 'ModelCursor':
         # Guardar la consulta en cache
-
         # pensar en un id guapo = aggregate_{filterSerializado}
         
         if "_id" in filter and isinstance(filter["_id"], str):
@@ -218,11 +216,13 @@ class Direccion(Model):
     admissible_vars = {"portal", "piso", "location"}
     _indexes = [("location", pymongo.GEOSPHERE)]
 
-    def pre_save(self):
+    def save(self):
+        
         if not getattr(self, 'location', None):
             address_components = [str(getattr(self, key)) for key in self.required_fields_order if getattr(self, key, None)]
             address_str = ', '.join(address_components)
             self.location = get_location_point(address_str)
+        super.save()
 
 class Cliente(Model):
     required_vars = {"nombre", "fecha_alta"}
@@ -265,7 +265,7 @@ class ModelCursor:
                 yield self.model_class(**doc)
 
 def init_app() -> None:
-    #Database
+    #mongo
     client = MongoClient(URL_DB)
     db = client[DB_NAME]
     Cliente.init_class(db["cliente"])
@@ -274,6 +274,6 @@ def init_app() -> None:
     Proveedor.init_class(db["proveedor"])
     #Cache
     r = redis.Redis(host=CACHE_HOST, port=CACHE_PORT,
-        username=CACHE_USERNAME, # use your Redis user. More info https://redis.io/docs/latest/operate/oss_and_stack/management/security/acl/
-        password=CACHE_PASSWORD, # use your Redis password
+        username=CACHE_USERNAME,
+        password=CACHE_PASSWORD,
         ssl=False)

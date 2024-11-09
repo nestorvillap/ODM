@@ -1,0 +1,18 @@
+MiModelo:
+  required_vars:
+    - nombre
+    - apellido
+    - edad
+  admissible_vars:
+    - dni
+    - direccion
+    - telefono
+MiOtroModelo:
+  required_vars:
+    - nombre
+    - apellido
+    - edad
+  admissible_vars:
+    - dni
+    - direccion
+    - telefono
