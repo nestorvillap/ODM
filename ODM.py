@@ -33,7 +33,7 @@ def get_location_point(address: str) -> Point:
             location = geolocator.geocode(address)
             if location:
                 return Point((location.longitude, location.latitude))
-        except (GeocoderTimedOut):
+        except:
             time.sleep(2 ** (attempt + 1))
     return None
 
