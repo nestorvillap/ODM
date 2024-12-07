@@ -16,3 +16,7 @@ CACHE_HOST = os.getenv("CACHE_HOST")
 CACHE_PORT = int(os.getenv("CACHE_PORT"))
 CACHE_USERNAME = os.getenv("CACHE_USERNAME")
 CACHE_PASSWORD = os.getenv("CACHE_PASSWORD")
+#Neo4J
+NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USER = os.getenv("NEO4J_USER")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")

@@ -10,10 +10,13 @@ from geojson import Point
 import logging
 import time
 import redis
+import json
+import threading
 
 # Configuración del logger
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger(__name__)
+
 
 def get_location_point(address: str) -> Point:
     geolocator = Nominatim(user_agent="ODM/1.1 (nestorvillap@gmail.com)", timeout=10)
@@ -39,6 +42,9 @@ class Model:
     _model_classes: dict[str, Type['Model']] = {}
     _date_fields: set[str] = set()
     _indexes: list = []
+
+    # Referencias al cliente Redis de caché
+    r_cache = None
 
     def __init__(self, **kwargs: Any):
         self._id = kwargs.pop('_id', None)
@@ -77,7 +83,11 @@ class Model:
                 self._changed_fields.add(name)
             self.__dict__[name] = value
         else:
-            raise AttributeError(f"No se puede asignar una variable no admitida: {name}")
+            # Para permitir atributos de clase como r_cache, etc.
+            if hasattr(self, name) or name in ('r_cache', 'db'):
+                super().__setattr__(name, value)
+            else:
+                raise AttributeError(f"No se puede asignar una variable no admitida: {name}")
 
     def to_dict(self) -> dict:
         doc = {}
@@ -110,8 +120,7 @@ class Model:
         pass
 
     def save(self) -> None:
-        #Hay que actualizarlo tambien en la cache
-        
+        self.pre_save()
         if self._id:
             if self._changed_fields:
                 self.db.update_one({"_id": self._id}, {"$set": self.to_update_dict()})
@@ -120,60 +129,117 @@ class Model:
             self._id = self.db.insert_one(self.to_dict()).inserted_id
             self._changed_fields.clear()
 
+        # Actualizar la caché con el objeto completo
+        self._cache_set(self._id, self.to_dict())
+
     def delete(self) -> None:
-        # Borrar tambien de la cache
-        
         if self._id:
             self.db.delete_one({"_id": self._id})
+            # Eliminar de la caché
+            self._cache_delete(self._id)
+
+    @classmethod
+    def _cache_key(cls, key: str) -> str:
+        return f"{cls.__name__}:{key}"
+
+    @classmethod
+    def _cache_set(cls, object_id: ObjectId, value: dict) -> None:
+        if cls.r_cache:
+            cls.r_cache.setex(cls._cache_key(str(object_id)), 86400, json.dumps(value, default=str))
+
+    @classmethod
+    def _cache_get(cls, object_id: ObjectId) -> dict:
+        if cls.r_cache:
+            data = cls.r_cache.get(cls._cache_key(str(object_id)))
+            if data:
+                # Renueva el TTL al acceder
+                cls.r_cache.expire(cls._cache_key(str(object_id)), 86400)
+                return json.loads(data)
+        return None
+
+    @classmethod
+    def _cache_delete(cls, object_id: ObjectId) -> None:
+        if cls.r_cache:
+            cls.r_cache.delete(cls._cache_key(str(object_id)))
+
+    @classmethod
+    def _cache_query_key(cls, query_name: str) -> str:
+        return f"{cls.__name__}:query:{query_name}"
+
+    @classmethod
+    def _cache_query_set(cls, key: str, results: list[dict]) -> None:
+        if cls.r_cache:
+            cls.r_cache.setex(cls._cache_query_key(key), 86400, json.dumps(results, default=str))
+
+    @classmethod
+    def _cache_query_get(cls, key: str) -> list[dict]:
+        if cls.r_cache:
+            data = cls.r_cache.get(cls._cache_query_key(key))
+            if data:
+                cls.r_cache.expire(cls._cache_query_key(key), 86400)
+                return json.loads(data)
+        return None
+
+    @classmethod
+    def _serialize_filter(cls, f: dict) -> str:
+        return json.dumps(f, sort_keys=True, default=str)
+
+    @classmethod
+    def _serialize_pipeline(cls, p: list[dict]) -> str:
+        return json.dumps(p, sort_keys=True, default=str)
 
     @classmethod
     def find(cls, filter: dict[str, Any]) -> 'ModelCursor':
         # Guardar la consulta en cache
-        # pensar en un id guapo = aggregate_{filterSerializado}
-        
-        if "_id" in filter and isinstance(filter["_id"], str):
-            filter["_id"] = ObjectId(filter["_id"])
-        return ModelCursor(cls, cls.db.find(filter))
+        serialized_filter = cls._serialize_filter(filter)
+        cached = cls._cache_query_get(serialized_filter)
+        if cached is not None:
+            # Devuelve directamente desde cache
+            return ModelCursor(cls, cached, raw=False, from_cache=True)
+
+        # Si no está en caché, consultar la BD y guardar en caché
+        cursor = list(cls.db.find(filter))
+        cls._cache_query_set(serialized_filter, cursor)
+        return ModelCursor(cls, cursor, raw=False)
 
     @classmethod
     def find_by_id(cls, id: Any) -> 'Model':
-        #Aqui hay que implementar Redis 
-
-        #Ver si esta en la cache, si esta en la cache lo usamos ahi
-
-        #Y si no esta en la cache buscamos en la base de datos
-        
-        #Esto realmente no hace, porque nosotros ya guardamos object id
-        #Pero no esta mal tenerlo por si acaso
         if isinstance(id, str):
             id = ObjectId(id)
-        #Probamos a bucar por el id
+
+        # Intentar obtener desde caché
+        cached = cls._cache_get(id)
+        if cached:
+            return cls(**cached)
+
+        # Si no está en cache, buscar en Mongo
         try:
             doc = cls.db.find_one({'_id': id})
-            #si lo encontramos lo devolvemos
             if doc:
+                # Guardar en caché
+                cls._cache_set(id, doc)
                 return cls(**doc)
         except Exception as e:
             logger.warning(f"Error finding document by ID: {e}")
-        #Si no lo encontramos no lo devolvemos
+
         return None
-    
+
     @classmethod
     def aggregate(cls, pipeline: list[dict], raw: bool = False) -> 'ModelCursor':
-        cursor = cls.db.aggregate(pipeline)
-        # Guardar la consulta en cache 
-        # Tenemos que comprobar si ya lo hemos guardado
-        # Para eso necesitamos guardarlo con un id
-        # y saber sacar el id para buscarlo
+        # Guardar la consulta en cache
+        serialized_pipeline = cls._serialize_pipeline(pipeline)
+        cached = cls._cache_query_get(serialized_pipeline)
+        if cached is not None:
+            return ModelCursor(cls, cached, raw=raw, from_cache=True)
 
-        # pensar en un id guapo = aggregate_{pipelineSerializado}.
-
+        cursor = list(cls.db.aggregate(pipeline))
+        cls._cache_query_set(serialized_pipeline, cursor)
         return ModelCursor(cls, cursor, raw=raw)
 
     @classmethod
-    def init_class(cls, db_collection: collection.Collection) -> None:
-        
+    def init_class(cls, db_collection: collection.Collection, r_cache=None) -> None:
         cls.db = db_collection
+        cls.r_cache = r_cache
         cls._create_indexes()
 
     @classmethod
@@ -217,12 +283,11 @@ class Direccion(Model):
     _indexes = [("location", pymongo.GEOSPHERE)]
 
     def save(self):
-        
         if not getattr(self, 'location', None):
             address_components = [str(getattr(self, key)) for key in self.required_fields_order if getattr(self, key, None)]
             address_str = ', '.join(address_components)
             self.location = get_location_point(address_str)
-        super.save()
+        super().save()
 
 class Cliente(Model):
     required_vars = {"nombre", "fecha_alta"}
@@ -252,28 +317,102 @@ class Compra(Model):
     _indexes = [("direccion_envio.location", pymongo.GEOSPHERE)]
 
 class ModelCursor:
-    def __init__(self, model_class: Type[Model], cursor, raw: bool = False):
+    def __init__(self, model_class: Type[Model], cursor, raw: bool = False, from_cache: bool = False):
         self.model_class = model_class
-        self.cursor = cursor
         self.raw = raw
+        self.from_cache = from_cache
+        # Si from_cache=True, cursor ya es una lista de dicts
+        if from_cache:
+            self.results = cursor
+        else:
+            self.results = list(cursor)
 
     def __iter__(self) -> Generator[Any, None, None]:
-        for doc in self.cursor:
+        for doc in self.results:
             if self.raw:
                 yield doc
             else:
                 yield self.model_class(**doc)
 
+
+# ---------------------------------------------------------
+# Empaquetado: Uso de Redis db=1 para manejar la cola y servicios
+
+def empaquetar(compra_id: str, service_id: int, sleep_time: int = 2):
+    # Este método simula el empaquetado
+    print(f"Servicio {service_id} empaquetando compra {compra_id}...")
+    time.sleep(sleep_time)
+
+def packaging_service_main(r_queue, service_id=1):
+    # Servicio principal: espera indefinidamente
+    while True:
+        # Espera indefinida: BLPOP sin timeout
+        item = r_queue.blpop("pending_compras")
+        if item:
+            _, compra_id = item
+            compra_id = compra_id.decode("utf-8")
+            # Empaquetar compra
+            empaquetar(compra_id, service_id)
+            # Crear un nuevo servicio secundario
+            new_service_id = service_id + 1
+            t = threading.Thread(target=packaging_service_secondary, args=(r_queue, new_service_id))
+            t.start()
+
+def packaging_service_secondary(r_queue, service_id):
+    # Servicio secundario: espera 1 minuto (60s) por una nueva compra
+    item = r_queue.blpop("pending_compras", timeout=60)
+    if item:
+        _, compra_id = item
+        compra_id = compra_id.decode("utf-8")
+        empaquetar(compra_id, service_id)
+        # Crear otro servicio secundario
+        new_service_id = service_id + 1
+        t = threading.Thread(target=packaging_service_secondary, args=(r_queue, new_service_id))
+        t.start()
+    else:
+        # No se encontró ninguna compra en 1 minuto, termina el servicio secundario
+        print(f"Servicio secundario {service_id} finaliza por inactividad.")
+
+
+def enqueue_compra(r_queue, compra_id: str):
+    # Encolar una compra confirmada para su empaquetado
+    r_queue.rpush("pending_compras", compra_id)
+
+
+# ---------------------------------------------------------
+
 def init_app() -> None:
-    #mongo
+    # Mongo
     client = MongoClient(URL_DB)
     db = client[DB_NAME]
-    Cliente.init_class(db["cliente"])
-    Producto.init_class(db["producto"])
-    Compra.init_class(db["compra"])
-    Proveedor.init_class(db["proveedor"])
-    #Cache
-    r = redis.Redis(host=CACHE_HOST, port=CACHE_PORT,
-        username=CACHE_USERNAME,
-        password=CACHE_PASSWORD,
-        ssl=False)
+
+    # Redis caché (db=0)
+    r_cache = redis.Redis(host=CACHE_HOST, port=CACHE_PORT,
+                          username=CACHE_USERNAME,
+                          password=CACHE_PASSWORD,
+                          ssl=False, db=0)
+    # Configuración de memoria
+    r_cache.config_set('maxmemory', '150mb')
+    # Política para eliminar claves con menor TTL primero
+    r_cache.config_set('maxmemory-policy', 'volatile-ttl')
+
+    # Inicializar clases con cache
+    Cliente.init_class(db["cliente"], r_cache)
+    Producto.init_class(db["producto"], r_cache)
+    Compra.init_class(db["compra"], r_cache)
+    Proveedor.init_class(db["proveedor"], r_cache)
+    Direccion.init_class(db["direccion"], r_cache=None)  # Si es necesario
+
+    # Redis cola (db=1) para empaquetado
+    r_queue = redis.Redis(host=CACHE_HOST, port=CACHE_PORT,
+                          username=CACHE_USERNAME,
+                          password=CACHE_PASSWORD,
+                          ssl=False, db=1)
+
+    # Iniciar el servicio principal de empaquetado
+    # Esto se podría iniciar en otro hilo o proceso.
+    # Por simplicidad, se deja comentado aquí.
+    # threading.Thread(target=packaging_service_main, args=(r_queue, 1), daemon=True).start()
+
+    # Ejemplo de uso:
+    # enqueue_compra(r_queue, "compra_12345")
